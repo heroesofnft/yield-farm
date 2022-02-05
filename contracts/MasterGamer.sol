@@ -224,7 +224,7 @@ contract MasterGamer is Ownable {
       return;
     }
 
-    // Reduce the rewards
+    // Increase the rewards
     increaseRewards();
 
     uint256 lpSupply = pool.lpToken.balanceOf(address(this));
