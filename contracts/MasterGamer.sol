@@ -82,6 +82,7 @@ contract MasterGamer is Ownable, ReentrancyGuard {
   event DevChanged(address _devaddr);
   event FeeChanged(address _feeaddr);
   event UpdateEmissionRate(address user, uint256 _honPerPeriod);
+  event FundsWithdrawn(uint256 anount);
 
   constructor(
     HonToken _hon,
@@ -264,7 +265,7 @@ contract MasterGamer is Ownable, ReentrancyGuard {
       // Cut the pool fee from deposited then send to the feeaddr
       if (pool.depositFeePerMillion > 0) {
         uint256 depositFee = (_amount.mul(pool.depositFeePerMillion)).div(1e6);
-        require(_amount > depositFee, "Insufficent deposit amount.");
+
         pool.lpToken.safeTransfer(feeaddr, depositFee);
         user.amount = (user.amount.add(_amount)).sub(depositFee);
       } else {
@@ -291,7 +292,7 @@ contract MasterGamer is Ownable, ReentrancyGuard {
   }
 
   /// @dev Withdraw without caring about rewards. EMERGENCY ONLY.
-  function emergencyWithdraw(uint256 _pid) external validatePoolByPid(_pid) nonReentrant {
+  function emergencyWithdraw(uint256 _pid) external validatePoolByPid(_pid) {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     uint256 _amount = user.amount;
@@ -336,5 +337,6 @@ contract MasterGamer is Ownable, ReentrancyGuard {
   function withdrawFunds() external onlyOwner {
     uint256 honBal = hon.balanceOf(address(this));
     hon.transfer(owner(), honBal);
+    emit FundsWithdrawn(honBal);
   }
 }
