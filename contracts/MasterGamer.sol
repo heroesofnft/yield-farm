@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./HonToken.sol";
 
 // MasterGamer is an Alpha Nerd. He can distribute Hon and he is a fair guy.
@@ -15,7 +16,7 @@ import "./HonToken.sol";
 // distributed and the community can show to govern itself.
 //
 // Have fun reading it. Hopefully it's bug-free. God bless.
-contract MasterGamer is Ownable {
+contract MasterGamer is Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
   // Info of each user.
@@ -249,7 +250,7 @@ contract MasterGamer is Ownable {
   }
 
   /// @dev Deposit LP tokens to MasterGamer for HON allocation.
-  function deposit(uint256 _pid, uint256 _amount) external validatePoolByPid(_pid) {
+  function deposit(uint256 _pid, uint256 _amount) external validatePoolByPid(_pid) nonReentrant {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     updatePool(_pid);
@@ -275,27 +276,29 @@ contract MasterGamer is Ownable {
   }
 
   /// @dev Withdraw LP tokens from MasterGamer.
-  function withdraw(uint256 _pid, uint256 _amount) external validatePoolByPid(_pid) {
+  function withdraw(uint256 _pid, uint256 _amount) external validatePoolByPid(_pid) nonReentrant {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     require(user.amount >= _amount, "withdraw: failed!");
     updatePool(_pid);
     uint256 pending = ((user.amount.mul(pool.accHonPerShare)).div(1e12)).sub(user.rewardDebt);
-    safeHonTransfer(msg.sender, pending);
     user.amount = user.amount.sub(_amount);
     user.rewardDebt = (user.amount.mul(pool.accHonPerShare)).div(1e12);
+
     pool.lpToken.safeTransfer(address(msg.sender), _amount);
+    safeHonTransfer(msg.sender, pending);
     emit Withdraw(msg.sender, _pid, _amount);
   }
 
   /// @dev Withdraw without caring about rewards. EMERGENCY ONLY.
-  function emergencyWithdraw(uint256 _pid) external validatePoolByPid(_pid) {
+  function emergencyWithdraw(uint256 _pid) external validatePoolByPid(_pid) nonReentrant {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
-    pool.lpToken.safeTransfer(address(msg.sender), user.amount);
-    emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+    uint256 _amount = user.amount;
     user.amount = 0;
     user.rewardDebt = 0;
+    pool.lpToken.safeTransfer(address(msg.sender), _amount);
+    emit EmergencyWithdraw(msg.sender, _pid, _amount);
   }
 
   /// @dev Safe HON transfer function, just in case if rounding error causes pool to not have enough HONs.
@@ -327,5 +330,11 @@ contract MasterGamer is Ownable {
     massUpdatePools();
     honPerPeriod = _honPerPeriod;
     emit UpdateEmissionRate(msg.sender, _honPerPeriod);
+  }
+
+  /// @dev Withdraw the funds
+  function withdrawFunds() external onlyOwner {
+    uint256 honBal = hon.balanceOf(address(this));
+    hon.transfer(owner(), honBal);
   }
 }
