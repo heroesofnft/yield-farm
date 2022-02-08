@@ -82,7 +82,7 @@ contract MasterGamer is Ownable, ReentrancyGuard {
   event DevChanged(address _devaddr);
   event FeeChanged(address _feeaddr);
   event UpdateEmissionRate(address user, uint256 _honPerPeriod);
-  event FundsWithdrawn(uint256 anount);
+  event FundsWithdrawn(uint256 amount);
 
   constructor(
     HonToken _hon,
